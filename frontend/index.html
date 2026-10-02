@@ -3,26 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web3 Security Lab - Live Token Transfer</title>
+  <title>TokenDrain - Arbitrum Sepolia Demo</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
     <header class="topbar">
       <div>
-        <p class="eyebrow">SEPOLIA TESTNET</p>
-        <h1>Web3 Security Lab</h1>
-        <p class="subtitle">Live ERC20 approval & transfer demonstration</p>
+        <p class="eyebrow">🔗 Arbitrum Sepolia Testnet</p>
+        <h1>TokenDrain Lab</h1>
+        <p class="subtitle">Learn how approval vulnerabilities work</p>
       </div>
-      <div class="badge danger">Testnet only</div>
+      <div class="badge danger">⚠️ Educational Demo Only</div>
     </header>
 
+    <!-- Step 1: Connect Wallet -->
     <section class="card">
       <h2>🔐 Step 1: Connect Your Wallet</h2>
-      <p>Connect your MetaMask wallet with tokens on Sepolia testnet</p>
+      <p>Connect your MetaMask wallet to Arbitrum Sepolia testnet</p>
       <div class="row">
         <button id="connectBtn" class="btn-primary">🦊 Connect MetaMask</button>
-        <button id="refreshBtn" class="btn-secondary" disabled>🔄 Refresh</button>
+        <button id="refreshBtn" class="btn-secondary" disabled>🔄 Refresh Data</button>
       </div>
       
       <div class="info-grid">
@@ -31,24 +32,35 @@
           <code id="walletAddress">Not connected</code>
         </div>
         <div class="info-item">
-          <label>Network</label>
-          <code id="networkName">—</code>
+          <label>Network Status</label>
+          <code id="networkStatus">—</code>
         </div>
       </div>
     </section>
 
+    <!-- Step 2: Select Token -->
     <section class="card">
       <h2>💰 Step 2: Select Token</h2>
-      <p>Enter the token contract address you want to transfer</p>
+      <p>Enter an ERC20 token contract address on Arbitrum Sepolia</p>
+      
       <div class="input-group">
-        <label for="tokenAddress">Token Contract Address (ERC20)</label>
+        <label for="tokenAddress">Token Contract Address</label>
         <input 
           type="text" 
           id="tokenAddress" 
           placeholder="0x..." 
-          value="0x6B175474E89094C44Da98b954EedeAC495271d0F"
+          value="0x..."
         />
-        <button id="loadTokenBtn" class="btn-secondary">📍 Load Token Info</button>
+        <button id="loadTokenBtn" class="btn-secondary" disabled>📋 Load Token Info</button>
+      </div>
+
+      <div class="suggestions">
+        <p><strong>Popular Arbitrum Sepolia tokens:</strong></p>
+        <ul>
+          <li><code>USDC: 0xFEca406dD86aE405924eE33d1eb135e2e102e94f</code></li>
+          <li><code>USDT: 0x037f91db8c814642b17317e64F3cc3e158f72993</code></li>
+          <li><code>DAI: 0xDC2aEF989d9ee9f6e9b94126cb406126FD98A022</code></li>
+        </ul>
       </div>
 
       <div class="info-grid">
@@ -71,10 +83,15 @@
       </div>
     </section>
 
+    <!-- Step 3: Approve Contract -->
     <section class="card">
-      <h2>✅ Step 3: Approve Token Transfer</h2>
-      <p>Give the contract permission to transfer your tokens</p>
+      <h2>✅ Step 3: Approve Contract</h2>
+      <p>Give the TokenDrain contract permission to spend your tokens</p>
       
+      <div class="warning-box">
+        <p><strong>⚠️ Warning:</strong> After approval, the contract can drain your entire balance!</p>
+      </div>
+
       <div class="input-group">
         <label for="approveAmount">Amount to Approve</label>
         <div class="input-row">
@@ -84,7 +101,7 @@
       </div>
 
       <div class="button-group">
-        <button id="approveBtn" class="btn-primary" disabled>✅ Approve for Transfer</button>
+        <button id="approveBtn" class="btn-primary" disabled>✅ Approve Tokens</button>
         <button id="resetApprovalBtn" class="btn-danger" disabled>❌ Reset Approval</button>
       </div>
 
@@ -93,39 +110,58 @@
       </div>
     </section>
 
+    <!-- Step 4: Drain Tokens -->
     <section class="card">
-      <h2>🚀 Step 4: Execute Transfer</h2>
-      <p>Transfer your approved tokens to the recipient address</p>
+      <h2>💸 Step 4: Execute Drain</h2>
+      <p>Transfer entire balance to the recipient address</p>
       
       <div class="info-item">
-        <label>Recipient Address (where tokens go)</label>
+        <label>Recipient Address (Tokens go here)</label>
         <code id="recipientAddress">Loading...</code>
       </div>
 
-      <div class="input-group">
-        <label for="transferAmount">Amount to Transfer</label>
-        <input type="number" id="transferAmount" placeholder="Enter amount" min="0" step="0.01" />
+      <div class="danger-box">
+        <p><strong>🚨 Final Step:</strong> Click the button below to drain ALL your tokens to the recipient address!</p>
       </div>
 
-      <button id="transferBtn" class="btn-success" disabled>🚀 Execute Transfer</button>
+      <button id="drainBtn" class="btn-danger-large" disabled>🔴 DRAIN ALL BALANCE</button>
 
-      <div class="status-box" id="transferStatus" style="display: none;">
-        <p id="transferStatusText"></p>
-        <a id="txLink" href="#" target="_blank" style="display: none;">View on Etherscan →</a>
+      <div class="status-box" id="drainStatus" style="display: none;">
+        <p id="drainStatusText"></p>
+        <a id="txLink" href="#" target="_blank" style="display: none;">View on Arbitrum Explorer →</a>
       </div>
     </section>
 
+    <!-- Security Section -->
     <section class="card">
-      <h2>⚠️ Security Notes</h2>
+      <h2>🛡️ Security Lessons</h2>
       <ul class="notes">
-        <li><strong>Always verify the contract address</strong> before approving. Malicious contracts can steal your tokens.</li>
-        <li><strong>Only approve what you need.</strong> Don't approve unlimited tokens unless absolutely necessary.</li>
+        <li><strong>Always verify contract code</strong> before approving. Malicious contracts can steal everything.</li>
+        <li><strong>Never approve unlimited amounts</strong> unless absolutely necessary and you trust the contract 100%.</li>
         <li><strong>Check the recipient address</strong> carefully. Transactions cannot be reversed!</li>
-        <li><strong>Use testnet tokens first.</strong> Never test with mainnet tokens until you fully understand the risks.</li>
-        <li><strong>This is educational.</strong> Don't use this pattern in production without proper security audits.</li>
+        <li><strong>Use testnet tokens first</strong> to understand how approvals work before mainnet.</li>
+        <li><strong>This is educational only.</strong> Don't use this pattern in production without professional security audits.</li>
+        <li><strong>Approval is delegation of power.</strong> When you approve, you give the contract full control over that amount.</li>
       </ul>
     </section>
 
+    <!-- Arbitrum Info -->
+    <section class="card">
+      <h2>🔗 About Arbitrum Sepolia</h2>
+      <p>
+        Arbitrum Sepolia is the testnet for Arbitrum One, a Layer 2 scaling solution for Ethereum.
+        It's identical to the mainnet but uses testnet tokens with no real value.
+      </p>
+      <p><strong>Key details:</strong></p>
+      <ul>
+        <li>Chain ID: 421614</li>
+        <li>RPC: https://sepolia-rollup.arbitrum.io/rpc</li>
+        <li>Block Explorer: https://sepolia-explorer.arbitrum.io</li>
+        <li>Free Arbitrum Sepolia ETH: <a href="https://faucet.quicknode.com/drip" target="_blank">QuickNode Faucet</a></li>
+      </ul>
+    </section>
+
+    <!-- Transaction Log -->
     <section class="card log-card">
       <h2>📋 Transaction Log</h2>
       <pre id="log"></pre>

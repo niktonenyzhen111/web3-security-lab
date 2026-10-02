@@ -1,8 +1,7 @@
 {
-  "network": "sepolia",
-  "chainId": 11155111,
-  "swapper": "0x...",
+  "network": "arbitrum-sepolia",
+  "chainId": 421614,
+  "contract": "0x...",
   "recipient": "0x...",
-  "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY",
-  "blockExplorer": "https://sepolia.etherscan.io"
+  "blockExplorer": "https://sepolia-explorer.arbitrum.io"
 }
