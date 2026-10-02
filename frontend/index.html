@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web3 Security Lab - Live Token Transfer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">SEPOLIA TESTNET</p>
+        <h1>Web3 Security Lab</h1>
+        <p class="subtitle">Live ERC20 approval & transfer demonstration</p>
+      </div>
+      <div class="badge danger">Testnet only</div>
+    </header>
+
+    <section class="card">
+      <h2>🔐 Step 1: Connect Your Wallet</h2>
+      <p>Connect your MetaMask wallet with tokens on Sepolia testnet</p>
+      <div class="row">
+        <button id="connectBtn" class="btn-primary">🦊 Connect MetaMask</button>
+        <button id="refreshBtn" class="btn-secondary" disabled>🔄 Refresh</button>
+      </div>
+      
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Your Wallet Address</label>
+          <code id="walletAddress">Not connected</code>
+        </div>
+        <div class="info-item">
+          <label>Network</label>
+          <code id="networkName">—</code>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>💰 Step 2: Select Token</h2>
+      <p>Enter the token contract address you want to transfer</p>
+      <div class="input-group">
+        <label for="tokenAddress">Token Contract Address (ERC20)</label>
+        <input 
+          type="text" 
+          id="tokenAddress" 
+          placeholder="0x..." 
+          value="0x6B175474E89094C44Da98b954EedeAC495271d0F"
+        />
+        <button id="loadTokenBtn" class="btn-secondary">📍 Load Token Info</button>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <label>Token Name</label>
+          <code id="tokenName">—</code>
+        </div>
+        <div class="info-item">
+          <label>Token Symbol</label>
+          <code id="tokenSymbol">—</code>
+        </div>
+        <div class="info-item">
+          <label>Your Balance</label>
+          <code id="tokenBalance">—</code>
+        </div>
+        <div class="info-item">
+          <label>Current Allowance</label>
+          <code id="allowance">—</code>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>✅ Step 3: Approve Token Transfer</h2>
+      <p>Give the contract permission to transfer your tokens</p>
+      
+      <div class="input-group">
+        <label for="approveAmount">Amount to Approve</label>
+        <div class="input-row">
+          <input type="number" id="approveAmount" placeholder="Enter amount" min="0" step="0.01" />
+          <button id="approveMaxBtn" class="btn-secondary" disabled>Max Balance</button>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="approveBtn" class="btn-primary" disabled>✅ Approve for Transfer</button>
+        <button id="resetApprovalBtn" class="btn-danger" disabled>❌ Reset Approval</button>
+      </div>
+
+      <div class="status-box" id="approveStatus" style="display: none;">
+        <p id="approveStatusText"></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>🚀 Step 4: Execute Transfer</h2>
+      <p>Transfer your approved tokens to the recipient address</p>
+      
+      <div class="info-item">
+        <label>Recipient Address (where tokens go)</label>
+        <code id="recipientAddress">Loading...</code>
+      </div>
+
+      <div class="input-group">
+        <label for="transferAmount">Amount to Transfer</label>
+        <input type="number" id="transferAmount" placeholder="Enter amount" min="0" step="0.01" />
+      </div>
+
+      <button id="transferBtn" class="btn-success" disabled>🚀 Execute Transfer</button>
+
+      <div class="status-box" id="transferStatus" style="display: none;">
+        <p id="transferStatusText"></p>
+        <a id="txLink" href="#" target="_blank" style="display: none;">View on Etherscan →</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>⚠️ Security Notes</h2>
+      <ul class="notes">
+        <li><strong>Always verify the contract address</strong> before approving. Malicious contracts can steal your tokens.</li>
+        <li><strong>Only approve what you need.</strong> Don't approve unlimited tokens unless absolutely necessary.</li>
+        <li><strong>Check the recipient address</strong> carefully. Transactions cannot be reversed!</li>
+        <li><strong>Use testnet tokens first.</strong> Never test with mainnet tokens until you fully understand the risks.</li>
+        <li><strong>This is educational.</strong> Don't use this pattern in production without proper security audits.</li>
+      </ul>
+    </section>
+
+    <section class="card log-card">
+      <h2>📋 Transaction Log</h2>
+      <pre id="log"></pre>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
